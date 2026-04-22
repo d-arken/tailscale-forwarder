@@ -50,7 +50,6 @@ This also solves for the issue that you can only run one Tailscale subnet router
 | `TS_CONTROL_URL`         | No       | -                                                                                   | Control server URL (e.g. a self-hosted Headscale). Leave unset to use Tailscale's default control plane. |
 | `TS_STATE_DIR`           | No       | -                                                                                   | Directory path for persisting Tailscale state across restarts. |
 | `TS_EPHEMERAL`           | No       | `true`                                                                              | Set to `false` to persist the node in your tailnet.            |
-| `LOCAL_LISTEN`           | No       | `false`                                                                             | Also bind each mapping's source port on the container's normal network interface so sibling services (e.g. other Railway services in the same project) can reach the forwarder via `RAILWAY_PRIVATE_DOMAIN`, not just tailnet peers. |
 
 ### State Persistence
 
