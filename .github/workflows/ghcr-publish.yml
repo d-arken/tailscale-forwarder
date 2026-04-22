@@ -1,6 +1,8 @@
 name: Docker
 
 on:
+  push:
+    branches: [main]
   release:
     types: [published]
 
@@ -44,6 +46,13 @@ jobs:
         uses: docker/metadata-action@v5
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=ref,event=branch
+            type=ref,event=tag
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=sha,prefix=sha-,format=short
+            type=raw,value=latest,enable={{is_default_branch}}
 
       # Build and push Docker image with Buildx
       # https://github.com/docker/build-push-action
