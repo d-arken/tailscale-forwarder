@@ -8,8 +8,8 @@ import (
 	"strings"
 )
 
-func parseConnectionMappingsFromEnv(prefix string) ([]ConnectionMapping, error) {
-	mappings := []ConnectionMapping{}
+func parseConnectionMappingsFromEnv(prefix string) ([]connectionMapping, error) {
+	connectionMappings := []connectionMapping{}
 
 	for _, envVar := range os.Environ() {
 		kv := strings.SplitN(envVar, "=", 2)
@@ -38,7 +38,7 @@ func parseConnectionMappingsFromEnv(prefix string) ([]ConnectionMapping, error) 
 			return nil, fmt.Errorf("invalid target port: %s", parts[2])
 		}
 
-		mappings = append(mappings, ConnectionMapping{
+		connectionMappings = append(connectionMappings, connectionMapping{
 			SourcePort: sourcePort,
 			TargetAddr: parts[1],
 			TargetPort: targetPort,
@@ -47,13 +47,13 @@ func parseConnectionMappingsFromEnv(prefix string) ([]ConnectionMapping, error) 
 
 	sourcePorts := []int{}
 
-	for _, m := range mappings {
-		if slices.Contains(sourcePorts, m.SourcePort) {
-			return nil, fmt.Errorf("duplicate source port %d found in connection mappings", m.SourcePort)
+	for _, connectionMapping := range connectionMappings {
+		if slices.Contains(sourcePorts, connectionMapping.SourcePort) {
+			return nil, fmt.Errorf("duplicate source port %d found in connection mappings", connectionMapping.SourcePort)
 		}
 
-		sourcePorts = append(sourcePorts, m.SourcePort)
+		sourcePorts = append(sourcePorts, connectionMapping.SourcePort)
 	}
 
-	return mappings, nil
+	return connectionMappings, nil
 }

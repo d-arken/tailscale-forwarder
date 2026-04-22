@@ -46,75 +46,57 @@ func main() {
 		slog.String("ts-control-url", config.Cfg.TSControlURL),
 		slog.String("ts-state-dir", config.Cfg.TSStateDir),
 		slog.Bool("ts-ephemeral", config.Cfg.TSEphemeral),
-		slog.Bool("local-listen", config.Cfg.LocalListen),
 		slog.Any("connection-mappings", config.Cfg.ConnectionMappings),
 	)
 
 	wg := sync.WaitGroup{}
 
 	for _, mapping := range config.Cfg.ConnectionMappings {
-		addr := fmt.Sprintf(":%d", mapping.SourcePort)
-
-		tsListener, err := ts.Listen("tcp", addr)
+		listener, err := ts.Listen("tcp", fmt.Sprintf(":%d", mapping.SourcePort))
 		if err != nil {
-			logger.Stderr.Error("failed to start tsnet listener", slog.Int("source_port", mapping.SourcePort), logger.ErrAttr(err))
+			logger.Stderr.Error("failed to start local listener", slog.Int("source_port", mapping.SourcePort), logger.ErrAttr(err))
 			os.Exit(1)
 		}
 
 		wg.Add(1)
-		go serve(tsListener, mapping, "tsnet", &wg)
-
-		if config.Cfg.LocalListen {
-			localListener, err := net.Listen("tcp", addr)
-			if err != nil {
-				logger.Stderr.Error("failed to start local listener", slog.Int("source_port", mapping.SourcePort), logger.ErrAttr(err))
-				os.Exit(1)
-			}
-
-			wg.Add(1)
-			go serve(localListener, mapping, "local", &wg)
-		}
-	}
-
-	wg.Wait()
-}
-
-func serve(listener net.Listener, mapping config.ConnectionMapping, kind string, wg *sync.WaitGroup) {
-	defer wg.Done()
-
-	logger.Stdout.Info("listening for connections",
-		slog.String("listener", kind),
-		slog.Int("source_port", mapping.SourcePort),
-		slog.String("target_addr", mapping.TargetAddr),
-		slog.Int("target_port", mapping.TargetPort),
-	)
-
-	for {
-		sourceConn, err := listener.Accept()
-		if err != nil {
-			logger.Stderr.Error("failed to accept connection",
-				slog.String("listener", kind),
-				slog.Int("source_port", mapping.SourcePort),
-				logger.ErrAttr(err),
-			)
-
-			continue
-		}
 
 		go func() {
-			if err := fwdTCP(sourceConn, mapping.TargetAddr, mapping.TargetPort); err != nil {
-				if errors.Is(err, net.ErrClosed) || errors.Is(err, syscall.ECONNRESET) {
-					return
+			defer wg.Done()
+
+			logger.Stdout.Info("listening for connections",
+				slog.Int("source_port", mapping.SourcePort),
+				slog.String("target_addr", mapping.TargetAddr),
+				slog.Int("target_port", mapping.TargetPort),
+			)
+
+			for {
+				sourceConn, err := listener.Accept()
+				if err != nil {
+					logger.Stderr.Error("failed to accept connection",
+						slog.Int("source_port", mapping.SourcePort),
+						logger.ErrAttr(err),
+					)
+
+					continue
 				}
 
-				logger.Stderr.Error("failed to forward connection",
-					slog.String("listener", kind),
-					slog.Int("source_port", mapping.SourcePort),
-					slog.String("target_addr", mapping.TargetAddr),
-					slog.Int("target_port", mapping.TargetPort),
-					logger.ErrAttr(err),
-				)
+				go func() {
+					if err := fwdTCP(sourceConn, mapping.TargetAddr, mapping.TargetPort); err != nil {
+						if errors.Is(err, net.ErrClosed) || errors.Is(err, syscall.ECONNRESET) {
+							return
+						}
+
+						logger.Stderr.Error("failed to forward connection",
+							slog.Int("source_port", mapping.SourcePort),
+							slog.String("target_addr", mapping.TargetAddr),
+							slog.Int("target_port", mapping.TargetPort),
+							logger.ErrAttr(err),
+						)
+					}
+				}()
 			}
 		}()
 	}
+
+	wg.Wait()
 }
